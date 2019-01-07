@@ -1,122 +1,19 @@
 import parseIcal from '@ncukondo/ical-parser-light';
 import axios from 'axios';
-import { promises as fs } from 'fs';
+import { ACacheStore, ICacheStore, IStringKeyValue, MemoryCacheStore } from './cache-store';
 
-interface ICacheStore {
-  loadCache(): Promise<IStringKeyValue | null>;
-  saveCache(data: IStringKeyValue): Promise<boolean>;
-  setCacheLimitDays(days: number): void;
-  setCacheLimitHours(Hours: number): void;
-  setCacheLimitMinutes(Minutes: number): void;
-  clear(): Promise<boolean>;
-}
-
-abstract class ACacheStore implements ICacheStore {
-  protected abstract getTimeStamp(): Promise<Date>;
-  protected abstract doLoadCache(): Promise<IStringKeyValue | null>;
-  abstract saveCache(data: IStringKeyValue): Promise<boolean>;
-  abstract clear(): Promise<boolean>;
-
-  private pcacheLimit = 1000 * 60 * 60 * 24 * 30;
-
-  loadCache(): Promise<IStringKeyValue | null> {
-    return new Promise<IStringKeyValue | null>(resolve => {
-      this.getTimeStamp()
-        .then(date => {
-          if (date && new Date().valueOf() < date.valueOf() + this.pcacheLimit) {
-            resolve(this.doLoadCache());
-          } else {
-            resolve(null);
-          }
-        })
-        .catch(reason => resolve(null));
-    });
-  }
-
-  setCacheLimitDays(days: number): void {
-    this.pcacheLimit = 1000 * 60 * 60 * 24 * days;
-  }
-  setCacheLimitHours(Hours: number): void {
-    this.pcacheLimit = 1000 * 60 * 60 * Hours;
-  }
-  setCacheLimitMinutes(Minutes: number): void {
-    this.pcacheLimit = 1000 * 60 * Minutes;
-  }
-}
-
-class FileCacheStore extends ACacheStore {
-  private pfilename = '';
-
-  constructor(filename: string = './cache.json') {
-    super();
-    this.pfilename = filename;
-  }
-
-  private getFileName(): string {
-    return this.pfilename;
-  }
-
-  async doLoadCache(): Promise<IStringKeyValue | null> {
-    try {
-      const text = await fs.readFile(this.getFileName(), 'utf8');
-      return JSON.parse(text);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  async saveCache(data: IStringKeyValue): Promise<boolean> {
-    try {
-      await fs.writeFile(this.getFileName(), JSON.stringify(data), 'utf8');
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  async exists(): Promise<boolean> {
-    try {
-      let result = (await fs.stat(this.getFileName())) ? true : false;
-      return result;
-    } catch (e) {
-      return false;
-    }
-  }
-  async getTimeStamp(): Promise<Date> {
-    try {
-      const stat = await fs.stat(this.getFileName());
-      return stat ? stat.atime : new Date(0);
-    } catch (e) {
-      return new Date(0);
-    }
-  }
-
-  async clear(): Promise<boolean> {
-    try {
-      const stat = await fs.stat(this.getFileName());
-      await fs.unlink(this.getFileName());
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-}
-
-interface IStringKeyValue {
-  [index: string]: string;
-}
+export { ACacheStore, setCacheStore };
+export default getHolidayName;
 
 class JapanHoliday {
   private HOLIDAY_CALENDAR_URL =
     'https://calendar.google.com/calendar/ical/ja.japanese%23holiday%40group.v.calendar.google.com/public/basic.ics';
-  private CACHE_FILE = './cache/japan-holiday.cache.json';
   private CACHE_LIMIT_DAYS = 30;
   private holidayList: IStringKeyValue | null = null;
   private DATE_FORMAT = 'YYYY-MM-DD';
-  private cache: ICacheStore = new FileCacheStore(this.CACHE_FILE);
+  private cache: ICacheStore = new MemoryCacheStore();
 
   constructor() {
-    this.setCacheStore(new FileCacheStore(this.CACHE_FILE));
     this.cache.setCacheLimitDays(this.CACHE_LIMIT_DAYS);
   }
 
@@ -202,8 +99,5 @@ async function getHolidayName(
     return await pjapanHoliday.getHolidayName(first as Date);
   }
 }
-
-export { ACacheStore, setCacheStore, FileCacheStore };
-export default getHolidayName;
 
 // process.on('unhandledRejection', console.dir);

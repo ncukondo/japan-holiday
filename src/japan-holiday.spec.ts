@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import getHolidayName, * as jsholiday from './japan-holiday';
+import { FileCacheStore } from './file-cache-store';
 jest.unmock('./japan-holiday');
 
 describe('japan-holiday', () => {
@@ -12,7 +13,7 @@ describe('japan-holiday', () => {
       expect(result).toBe('春分の日');
     });
     it('2019/8/12 is 山の日 振替休日 in replaced cache', async () => {
-      let cache = new jsholiday.FileCacheStore('./cache.json');
+      let cache = new FileCacheStore('./cache.json');
       jsholiday.setCacheStore(cache);
       let result = await getHolidayName(2019, 8, 12);
       let data = await cache.loadCache();
